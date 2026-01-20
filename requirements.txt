@@ -1,0 +1,8 @@
+streamlit
+earthengine-api
+geemap
+folium
+numpy
+pandas
+scikit-learn
+xgboost
