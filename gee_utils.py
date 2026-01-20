@@ -1,19 +1,35 @@
 import ee
 from config import AREAS
 
+
+# --------------------------------------------------
+# Earth Engine initialization (SAFE for Cloud)
+# --------------------------------------------------
 def init_ee():
     """
-    Initialize Google Earth Engine
+    Initialize Google Earth Engine safely.
+
+    - Local machine:
+        ee.Initialize() works because you already authenticated.
+    - Streamlit Community Cloud:
+        ee.Initialize() fails → returns False
+        (NO authentication attempt, NO crash)
+
+    Returns:
+        True  → Earth Engine ready
+        False → Earth Engine not available (demo mode)
     """
     try:
         ee.Initialize()
-        print("Earth Engine initialized")
+        return True
     except Exception:
-        ee.Authenticate()
-        ee.Initialize()
-        print("Earth Engine authenticated & initialized")
+        # 🚫 NEVER call ee.Authenticate() on Streamlit Cloud
+        return False
 
 
+# --------------------------------------------------
+# Vegetation features (NDVI, EVI)
+# --------------------------------------------------
 def get_vegetation_image(area, year):
     aoi = ee.Geometry.Rectangle(AREAS[area])
 
@@ -26,9 +42,13 @@ def get_vegetation_image(area, year):
         .multiply(0.0001)
         .clip(aoi)
     )
+
     return img
 
 
+# --------------------------------------------------
+# Burned area label (MODIS)
+# --------------------------------------------------
 def get_burn_label(area, year):
     aoi = ee.Geometry.Rectangle(AREAS[area])
 
@@ -43,39 +63,28 @@ def get_burn_label(area, year):
         .rename("BURN_LABEL")
         .clip(aoi)
     )
+
     return burn
 
+
+# --------------------------------------------------
+# Fire risk prediction (SAFE – handles no-fire cases)
+# --------------------------------------------------
 def get_fire_risk_prediction(area, year):
     """
-    Safe fire risk prediction.
-    Trains RF only if both classes exist.
+    Train a Random Forest inside Earth Engine
+    only if fire pixels exist.
+
+    If no fire pixels exist → returns a zero-risk image.
     """
 
     aoi = ee.Geometry.Rectangle(AREAS[area])
 
     # Vegetation features
-    veg = (
-        ee.ImageCollection("MODIS/061/MOD13Q1")
-        .filterDate(f"{year}-01-01", f"{year}-12-31")
-        .filterBounds(aoi)
-        .select(["NDVI", "EVI"])
-        .median()
-        .multiply(0.0001)
-        .clip(aoi)
-    )
+    veg = get_vegetation_image(area, year)
 
     # Burn label
-    burn = (
-        ee.ImageCollection("MODIS/061/MCD64A1")
-        .filterDate(f"{year}-01-01", f"{year}-12-31")
-        .filterBounds(aoi)
-        .select("BurnDate")
-        .max()
-        .unmask(0)
-        .gt(0)
-        .rename("BURN_LABEL")
-        .clip(aoi)
-    )
+    burn = get_burn_label(area, year)
 
     dataset = veg.addBands(burn)
 
@@ -87,11 +96,11 @@ def get_fire_risk_prediction(area, year):
         maxPixels=1e13
     ).get("BURN_LABEL")
 
-    # If no fire pixels → return zero-risk map
+    # No-fire case → safe output
     def no_fire_case():
         return ee.Image(0).rename("FIRE_RISK").clip(aoi)
 
-    # Train only if fire pixels exist
+    # Train RF only if fire pixels exist
     def train_case():
         fire_samples = dataset.updateMask(burn).sample(
             region=aoi,
@@ -109,7 +118,9 @@ def get_fire_risk_prediction(area, year):
 
         samples = fire_samples.merge(nofire_samples)
 
-        rf = ee.Classifier.smileRandomForest(300).train(
+        rf = ee.Classifier.smileRandomForest(
+            numberOfTrees=300
+        ).train(
             features=samples,
             classProperty="BURN_LABEL",
             inputProperties=["NDVI", "EVI"]
@@ -117,7 +128,6 @@ def get_fire_risk_prediction(area, year):
 
         return veg.classify(rf).rename("FIRE_RISK")
 
-    # Conditional execution
     prediction = ee.Image(
         ee.Algorithms.If(
             ee.Number(fire_count).gt(0),
