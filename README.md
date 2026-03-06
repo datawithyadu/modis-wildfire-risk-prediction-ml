@@ -49,6 +49,4 @@ Pandas
 Scikit-learn  
 XGBoost  
 Google Earth Engine  
-Streamlit  
-
-## Project Structure
+Streamlit
