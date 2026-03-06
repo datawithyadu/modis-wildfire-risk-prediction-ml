@@ -95,7 +95,7 @@ if run:
             "NDVI",
         )
 
-        st_folium(m1, width=350, height=350)
+        st_folium(m1, width=350, height=350, key="ndvi_map")
 
     # ---- Fire Risk Prediction ----
     with col2:
@@ -109,7 +109,7 @@ if run:
             "Fire Risk",
         )
 
-        st_folium(m2, width=350, height=350)
+        st_folium(m2, width=350, height=350, key="risk_map")
 
     # ---- Burned Area ----
     with col3:
@@ -123,7 +123,7 @@ if run:
             "Burn Label",
         )
 
-        st_folium(m3, width=350, height=350)
+        st_folium(m3, width=350, height=350, key="burn_map")
 
     # ----------------------------
     # Model performance
