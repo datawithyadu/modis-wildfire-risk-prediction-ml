@@ -17,7 +17,7 @@ from config import AREAS
 # Page config
 # ----------------------------
 st.set_page_config(layout="wide")
-st.title("🔥 Forest Wildfire Decision Support System")
+st.title("Forest Wildfire Decision Support System")
 st.caption("MODIS • Google Earth Engine • Machine Learning")
 
 
@@ -41,7 +41,13 @@ area = st.sidebar.selectbox("Study Area", list(AREAS.keys()))
 year = st.sidebar.selectbox("Year", [2021, 2022, 2023])
 model = st.sidebar.radio("ML Model", ["Random Forest", "XGBoost"])
 
-run = st.sidebar.button("Run Analysis")
+if "run" not in st.session_state:
+    st.session_state.run = False
+
+if st.sidebar.button("Run Analysis"):
+    st.session_state.run = True
+
+run = st.session_state.run
 
 
 # ----------------------------
@@ -49,7 +55,7 @@ run = st.sidebar.button("Run Analysis")
 # ----------------------------
 if run and not ee_ready:
     st.warning(
-        "⚠️ Google Earth Engine authentication is not available on "
+        "Google Earth Engine authentication is not available on "
         "Streamlit Community Cloud.\n\n"
         "Run locally to view satellite layers."
     )
@@ -79,7 +85,7 @@ if run:
 
     # ---- NDVI ----
     with col1:
-        st.subheader("🌿 NDVI")
+        st.subheader("NDVI")
         m1 = folium.Map(location=[55, -125], zoom_start=5)
 
         add_ee_layer(
@@ -93,7 +99,7 @@ if run:
 
     # ---- Fire Risk Prediction ----
     with col2:
-        st.subheader("🔥 Predicted Fire Risk")
+        st.subheader("Predicted Fire Risk")
         m2 = folium.Map(location=[55, -125], zoom_start=5)
 
         add_ee_layer(
@@ -107,7 +113,7 @@ if run:
 
     # ---- Burned Area ----
     with col3:
-        st.subheader("✅ Burned Area (MODIS)")
+        st.subheader("Burned Area (MODIS)")
         m3 = folium.Map(location=[55, -125], zoom_start=5)
 
         add_ee_layer(
@@ -123,7 +129,7 @@ if run:
     # Model performance
     # ----------------------------
     st.divider()
-    st.subheader("📊 Model Performance")
+    st.subheader("Model Performance")
 
     metrics = get_model_metrics(model)
 
